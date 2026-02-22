@@ -40,6 +40,10 @@ public class SimpleDownloader extends Downloader {
             ResponseBody body = response.body();
             if (body == null) throw new IOException("Empty response body");
 
+//            String html = response.body().string();
+//            System.out.println(html);
+
+
             return new Response(
                     response.code(),
                     response.message(),

@@ -146,9 +146,10 @@
 
         <dependency>
             <groupId>com.github.teamnewpipe</groupId>
-            <artifactId>newpipeextractor</artifactId>
-            <version>0.24.8</version>
+            <artifactId>NewPipeExtractor</artifactId>
+            <version>v0.25.2</version> <!-- Use the specific tag for 0.25.2 -->
         </dependency>
+
 
         <!-- ... OkHttp3Downloader के लिए OkHttp3 -->
         <dependency>

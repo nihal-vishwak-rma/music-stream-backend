@@ -42,8 +42,13 @@ public class MusicServiceImpl implements MusicService {
 
     private final SongRepository songRepository;
     private final Map<String, Page> pageCache = new ConcurrentHashMap<>();
+
     private final Cache<String, org.schabi.newpipe.extractor.stream.StreamInfo> streamCache = CacheBuilder.newBuilder()
             .maximumSize(500).expireAfterWrite(1, TimeUnit.HOURS).build();
+
+    private final Cache<String, SongResponse> searchsongs = CacheBuilder.newBuilder().maximumSize(500).expireAfterWrite(2, TimeUnit.HOURS).build();
+
+
     @Value("${youtube.data.api.key}")
     private String apikey;
     private YouTube youTube;
@@ -214,6 +219,16 @@ public class MusicServiceImpl implements MusicService {
         log.info("Searching songs for query: {}", query);
 
         try {
+
+            String cachekey = query + "|" + pageToken + "|" + limit;
+
+            SongResponse cached = searchsongs.getIfPresent(cachekey);
+
+            if (cached != null) {
+                log.info("cached  song ");
+                return cached;
+            }
+
             StreamingService youtubeService = NewPipe.getService(0);
             SearchExtractor extractor = youtubeService.getSearchExtractor(query);
             extractor.fetchPage();
@@ -223,6 +238,10 @@ public class MusicServiceImpl implements MusicService {
             List<SongDto> songDtos = processSongs(infoItemsPage.getItems(), limit);
 
             String nextToken = cacheNextPage(infoItemsPage.getNextPage());
+
+
+            searchsongs.put(cachekey, new SongResponse(songDtos, nextToken, pageToken));
+
 
             log.info("Successfully fetched {} songs", songDtos.size());
 
@@ -256,6 +275,7 @@ public class MusicServiceImpl implements MusicService {
 
         return extractor.getPage(page);
     }
+
 
     private List<SongDto> processSongs(List<InfoItem> items, int limit) {
         return items.stream()
@@ -294,6 +314,7 @@ public class MusicServiceImpl implements MusicService {
         return songDto;
     }
 
+
     private String getThumbnailUrl(List<Image> thumbnails) {
         if (thumbnails == null || thumbnails.isEmpty()) {
             return "";
@@ -313,6 +334,7 @@ public class MusicServiceImpl implements MusicService {
 
         return tokenKey;
     }
+
 
     private String extractVideoIdFromUrl(String url) {
         if (url == null || url.isEmpty()) {
