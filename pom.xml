@@ -68,6 +68,11 @@
         </dependency>
 
         <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
             <optional>true</optional>
@@ -110,14 +115,13 @@
             <version>0.11.5</version>
         </dependency>
 
-        <!--		for youtube data api-->
+
         <dependency>
             <groupId>com.google.apis</groupId>
             <artifactId>google-api-services-youtube</artifactId>
             <version>v3-rev20250714-2.0.0</version>
         </dependency>
 
-        <!-- https://mvnrepository.com/artifact/com.google.api-client/google-api-client -->
         <dependency>
             <groupId>com.google.api-client</groupId>
             <artifactId>google-api-client</artifactId>
@@ -136,7 +140,6 @@
             <version>4.12.0</version>
         </dependency>
 
-        <!-- https://mvnrepository.com/artifact/org.springdoc/springdoc-openapi-ui -->
         <dependency>
             <groupId>org.springdoc</groupId>
             <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
@@ -145,20 +148,18 @@
 
 
         <dependency>
-            <groupId>com.github.teamnewpipe</groupId>
+            <groupId>com.github.TeamNewPipe</groupId>
             <artifactId>NewPipeExtractor</artifactId>
-            <version>v0.25.2</version> <!-- Use the specific tag for 0.25.2 -->
+            <version>v0.26.2</version>
         </dependency>
 
 
-        <!-- ... OkHttp3Downloader के लिए OkHttp3 -->
         <dependency>
             <groupId>com.squareup.okhttp3</groupId>
             <artifactId>okhttp</artifactId>
-            <version>4.9.3</version> <!-- या नवीनतम संस्करण -->
+            <version>4.9.3</version>
         </dependency>
 
-        <!-- https://mvnrepository.com/artifact/org.modelmapper/modelmapper -->
         <dependency>
             <groupId>org.modelmapper</groupId>
             <artifactId>modelmapper</artifactId>

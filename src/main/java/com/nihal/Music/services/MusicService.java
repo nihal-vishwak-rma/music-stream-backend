@@ -13,4 +13,6 @@ public interface MusicService {
     SongResponse searchSongNewPipe(String query, String pageToken, int limit);
 
     StreamUrlDto extractStreamUrl(String videoId, String quality);
+
+    public StreamUrlDto ytDlpExtractor(String url);
 }

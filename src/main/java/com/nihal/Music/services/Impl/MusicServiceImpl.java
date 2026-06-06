@@ -18,6 +18,7 @@ import com.nihal.Music.services.MusicService;
 import lombok.extern.slf4j.Slf4j;
 import org.schabi.newpipe.extractor.*;
 import org.schabi.newpipe.extractor.ListExtractor.InfoItemsPage;
+import org.schabi.newpipe.extractor.exceptions.ContentNotAvailableException;
 import org.schabi.newpipe.extractor.exceptions.ExtractionException;
 import org.schabi.newpipe.extractor.search.SearchExtractor;
 import org.schabi.newpipe.extractor.stream.AudioStream;
@@ -402,6 +403,13 @@ public class MusicServiceImpl implements MusicService {
             List<AudioStream> audioStreams = streamInfo.getAudioStreams();
 
             if (audioStreams.isEmpty()) {
+                StreamUrlDto streamUrlDto = ytDlpExtractor(fullUrl);
+
+                if (streamUrlDto != null) {
+                    return streamUrlDto;
+                }
+
+                log.warn("No audio stream found for this video");
                 throw new AudioNotFoundException("\"No audio stream found for this video.\"");
             }
 
@@ -413,8 +421,12 @@ public class MusicServiceImpl implements MusicService {
 
             log.info("Extracted audio url");
             return new StreamUrlDto(audioStream.getUrl());
-        } catch (AudioNotFoundException | InvalidVideoUrl e) {
-            throw e;
+        } catch (AudioNotFoundException | InvalidVideoUrl | ContentNotAvailableException e) {
+            try {
+                throw e;
+            } catch (ContentNotAvailableException ex) {
+                throw new RuntimeException(ex);
+            }
         } catch (Exception e) {
             log.error("Failed to extract stream url", e);
             throw new RuntimeException("Failed to extract audio stream");
@@ -438,5 +450,38 @@ public class MusicServiceImpl implements MusicService {
         };
     }
 
+
+    @Override
+    public StreamUrlDto ytDlpExtractor(String url) {
+
+        log.info("Extracting stream url using yt-dlp...");
+
+        try {
+            ProcessBuilder pb = new ProcessBuilder(
+                    "/home/nihal/.local/bin/yt-dlp",
+                    "-f", "bestaudio",
+                    "--get-url",
+                    url
+            );
+
+            pb.redirectErrorStream(false);
+
+            Process process = pb.start();
+            String audioUrl = new String(process.getInputStream().readAllBytes()).trim();
+            int exitCode = process.waitFor();
+
+            if (exitCode != 0 || audioUrl.isEmpty()) {
+                log.error("yt-dlp failed: {}", audioUrl);
+                return null;
+            }
+
+            log.info("Extracted stream url using yt-dlp");
+            return new StreamUrlDto(audioUrl);
+
+        } catch (IOException | InterruptedException e) {
+            log.error("yt-dlp extraction failed", e);
+            return null;
+        }
+    }
 
 }

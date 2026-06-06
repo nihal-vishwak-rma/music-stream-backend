@@ -63,6 +63,7 @@ public class PlayListController {
         return ResponseEntity.status(HttpStatus.OK).body(new ApiResponse<>(true, allPlayLists, allPlayLists.isEmpty() ? "No PlayList found" : "Fetched all your playlists successfully"));
     }
 
+
     @GetMapping("/collabPlayList")
     public ResponseEntity<ApiResponse<List<PlayListDto>>> getAllCollabPlayLists(@AuthenticationPrincipal MusicUserDetails musicUserDetails) {
 
@@ -153,8 +154,6 @@ public class PlayListController {
                 .body(new ApiResponse<>(true, playLists, "Removed from playlist successfully"));
 
     }
-
-    
 
 
 }
