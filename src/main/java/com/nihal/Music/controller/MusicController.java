@@ -10,7 +10,6 @@ import com.nihal.Music.services.MusicService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -31,7 +30,6 @@ public class MusicController {
     private final UserRepository userRepository;
 
     @GetMapping("/search")
-    @Cacheable
     public ResponseEntity<ApiResponse<SongResponse>> searchSongs(@RequestParam String songname,
                                                                  @RequestParam(required = false) String pagetoken,
                                                                  @AuthenticationPrincipal MusicUserDetails musicUserDetails) throws IOException {

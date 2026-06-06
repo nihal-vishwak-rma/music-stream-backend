@@ -1,5 +1,6 @@
 package com.nihal.Music.services.Impl;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
 import com.google.api.client.googleapis.json.GoogleJsonResponseException;
 import com.google.api.client.json.jackson2.JacksonFactory;
@@ -25,6 +26,7 @@ import org.schabi.newpipe.extractor.stream.AudioStream;
 import org.schabi.newpipe.extractor.stream.StreamInfo;
 import org.schabi.newpipe.extractor.stream.StreamInfoItem;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
@@ -44,18 +46,23 @@ public class MusicServiceImpl implements MusicService {
     private final SongRepository songRepository;
     private final Map<String, Page> pageCache = new ConcurrentHashMap<>();
 
-    private final Cache<String, org.schabi.newpipe.extractor.stream.StreamInfo> streamCache = CacheBuilder.newBuilder()
-            .maximumSize(500).expireAfterWrite(1, TimeUnit.HOURS).build();
-
     private final Cache<String, SongResponse> searchsongs = CacheBuilder.newBuilder().maximumSize(500).expireAfterWrite(2, TimeUnit.HOURS).build();
 
+    private final ObjectMapper objectMapper;
+    private final RedisTemplate<String, String> redisTemplate;
 
     @Value("${youtube.data.api.key}")
     private String apikey;
     private YouTube youTube;
 
+    private String MUSIC_URL_KEY = "music:streamUrl:";
+    private Duration MUSIC_URL_DURATION = Duration.ofHours(3);
 
-    public MusicServiceImpl(SongRepository songRepository) throws GeneralSecurityException, IOException {
+    private String MUSIC_SEARCH_KEY = "music:search:";
+    private Duration MUSIC_SEARCH_DURATION = Duration.ofMinutes(30);
+
+
+    public MusicServiceImpl(SongRepository songRepository, RedisTemplate<String, String> redisTemplate, ObjectMapper objectMapper) throws GeneralSecurityException, IOException {
         this.youTube = new YouTube.Builder(
                 GoogleNetHttpTransport.newTrustedTransport(),
                 JacksonFactory.getDefaultInstance(),
@@ -65,6 +72,8 @@ public class MusicServiceImpl implements MusicService {
                 .setApplicationName("musicwebapp")
                 .build();
         this.songRepository = songRepository;
+        this.redisTemplate = redisTemplate;
+        this.objectMapper = objectMapper;
     }
 
     @Override
@@ -380,32 +389,41 @@ public class MusicServiceImpl implements MusicService {
     @Override
     public StreamUrlDto extractStreamUrl(String videoId, String quality) {
 
+        if (videoId == null || videoId.trim().isEmpty()) {
+            throw new InvalidVideoUrl("invalid video id");
+        }
+
+        String fullUrl = "https://www.youtube.com/watch?v=" + videoId;
+
         try {
+
+            String json = (String) redisTemplate.opsForValue().get(MUSIC_URL_KEY + ":" + fullUrl);
+
+            if (json != null) {
+                log.info("StreamUrl found in redis cache");
+                return objectMapper.readValue(json, StreamUrlDto.class);
+            }
 
             log.info("extracting streamUrl...");
 
-            if (videoId == null || videoId.trim().isEmpty()) {
-                throw new InvalidVideoUrl("invalid video id");
-            }
-
-
             StreamingService youtubeservice = NewPipe.getService(0);
 
-            String fullUrl = "https://www.youtube.com/watch?v=" + videoId;
 
-            StreamInfo streamInfo = streamCache.getIfPresent(videoId);
+            StreamInfo streamInfo = StreamInfo.getInfo(youtubeservice, fullUrl);
 
-            if (streamInfo == null) {
-                streamInfo = StreamInfo.getInfo(youtubeservice, fullUrl);
-                streamCache.put(videoId, streamInfo);
-            }
 
             List<AudioStream> audioStreams = streamInfo.getAudioStreams();
 
             if (audioStreams.isEmpty()) {
+                // if no audio stream is found, use yt-dlp to extract
                 StreamUrlDto streamUrlDto = ytDlpExtractor(fullUrl);
 
                 if (streamUrlDto != null) {
+
+                    log.info("Caching stream url");
+                    String saveJson = objectMapper.writeValueAsString(streamUrlDto);
+                    redisTemplate.opsForValue().set(MUSIC_URL_KEY + ":" + fullUrl, saveJson, MUSIC_URL_DURATION);
+
                     return streamUrlDto;
                 }
 
@@ -419,8 +437,16 @@ public class MusicServiceImpl implements MusicService {
                 throw new AudioNotFoundException("Playable audio URL not found");
             }
 
+            StreamUrlDto streamUrlDto = new StreamUrlDto(audioStream.getUrl());
+
+            log.info("Caching stream url");
+
+            String saveJson = objectMapper.writeValueAsString(streamUrlDto);
+            redisTemplate.opsForValue().set(MUSIC_URL_KEY + ":" + fullUrl, saveJson, MUSIC_URL_DURATION);
+
             log.info("Extracted audio url");
-            return new StreamUrlDto(audioStream.getUrl());
+            return streamUrlDto;
+
         } catch (AudioNotFoundException | InvalidVideoUrl | ContentNotAvailableException e) {
             try {
                 throw e;

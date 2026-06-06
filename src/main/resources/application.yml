@@ -9,3 +9,9 @@ app:
   cors:
     front-end-url: ${FRONTEND_URL:http://127.0.0.1:5500}
 
+spring:
+  redis:
+    host: ${REDIS_HOST:localhost}
+    port: ${REDIS_PORT:6379}
+  cache:
+    type: redis
