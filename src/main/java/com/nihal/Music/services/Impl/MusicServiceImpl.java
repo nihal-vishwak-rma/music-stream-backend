@@ -1,5 +1,6 @@
 package com.nihal.Music.services.Impl;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
 import com.google.api.client.googleapis.json.GoogleJsonResponseException;
@@ -33,7 +34,6 @@ import java.io.IOException;
 import java.security.GeneralSecurityException;
 import java.time.Duration;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -44,9 +44,8 @@ import java.util.stream.Collectors;
 public class MusicServiceImpl implements MusicService {
 
     private final SongRepository songRepository;
-    private final Map<String, Page> pageCache = new ConcurrentHashMap<>();
-
-    private final Cache<String, SongResponse> searchsongs = CacheBuilder.newBuilder().maximumSize(500).expireAfterWrite(2, TimeUnit.HOURS).build();
+    private final Cache<String, Page> pageCache = CacheBuilder
+            .newBuilder().maximumSize(1000).expireAfterWrite(1, TimeUnit.HOURS).build();
 
     private final ObjectMapper objectMapper;
     private final RedisTemplate<String, String> redisTemplate;
@@ -226,17 +225,19 @@ public class MusicServiceImpl implements MusicService {
     @Override
     public SongResponse searchSongNewPipe(String query, String pageToken, int limit) {
 
-        log.info("Searching songs for query: {}", query);
+        query = query.toLowerCase().trim();
 
+        log.info("Searching songs for query: {}", query);
         try {
 
-            String cachekey = query + "|" + pageToken + "|" + limit;
+            String cachekey = MUSIC_SEARCH_KEY + query + ":" + pageToken + ":" + limit;
 
-            SongResponse cached = searchsongs.getIfPresent(cachekey);
+            String json = redisTemplate.opsForValue().get(cachekey);
 
-            if (cached != null) {
-                log.info("cached  song ");
-                return cached;
+            if (json != null) {
+                log.info("Cache hit for query: {}", query);
+                return objectMapper.readValue(json, new TypeReference<SongResponse>() {
+                });
             }
 
             StreamingService youtubeService = NewPipe.getService(0);
@@ -249,13 +250,13 @@ public class MusicServiceImpl implements MusicService {
 
             String nextToken = cacheNextPage(infoItemsPage.getNextPage());
 
+            SongResponse songResponse = new SongResponse(songDtos, nextToken, pageToken);
 
-            searchsongs.put(cachekey, new SongResponse(songDtos, nextToken, pageToken));
-
+            redisTemplate.opsForValue().set(cachekey, objectMapper.writeValueAsString(songResponse), MUSIC_SEARCH_DURATION);
 
             log.info("Successfully fetched {} songs", songDtos.size());
 
-            return new SongResponse(songDtos, nextToken, pageToken);
+            return songResponse;
 
         } catch (ExtractionException e) {
             log.error("Extraction error while searching: {}", e.getMessage(), e);
@@ -264,8 +265,7 @@ public class MusicServiceImpl implements MusicService {
             log.error("IO error while fetching page: {}", e.getMessage(), e);
             throw new RuntimeException("Network error while fetching songs", e);
         } catch (Exception e) {
-            log.error("Unexpected error during search: {}", e.getMessage(), e);
-            return new SongResponse(new ArrayList<>(), null, null);
+            throw new RuntimeException("Search failed", e);
         }
     }
 
@@ -277,15 +277,30 @@ public class MusicServiceImpl implements MusicService {
             return extractor.getInitialPage();
         }
 
-        Page page = pageCache.get(pageToken);
+
+        Page page = pageCache.getIfPresent(pageToken);
         if (page == null) {
             log.warn("Invalid or expired page token: {}", pageToken);
             throw new IllegalArgumentException("Invalid or expired page token");
         }
 
+        log.info("Cache hit for page token: {}", pageToken);
+
         return extractor.getPage(page);
     }
 
+    private String cacheNextPage(Page nextPage) {
+        if (nextPage == null) {
+            return null;
+        }
+
+        String tokenKey = UUID.randomUUID().toString();
+        pageCache.put(tokenKey, nextPage);
+
+        log.info("next page cached successfully");
+
+        return tokenKey;
+    }
 
     private List<SongDto> processSongs(List<InfoItem> items, int limit) {
         return items.stream()
@@ -331,18 +346,6 @@ public class MusicServiceImpl implements MusicService {
         }
 
         return thumbnails.get(thumbnails.size() - 1).getUrl();
-    }
-
-    private String cacheNextPage(Page nextPage) {
-        if (nextPage == null) {
-            return null;
-        }
-
-        String tokenKey = UUID.randomUUID().toString();
-        pageCache.put(tokenKey, nextPage);
-
-
-        return tokenKey;
     }
 
 

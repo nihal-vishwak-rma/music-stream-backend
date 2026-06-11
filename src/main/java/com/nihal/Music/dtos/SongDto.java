@@ -1,7 +1,10 @@
 package com.nihal.Music.dtos;
 
 
-import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 @Data
 @Builder
@@ -10,11 +13,11 @@ import lombok.*;
 public class SongDto {
 
     private Long id;
-    private String videoId;       // YouTube video ID
-    private String title;         // Song title
-    private String artist;        // Channel name as artist
-    private String duration;      // Duration in ISO 8601 format, e.g., PT3M30S
-    private String thumbnailUrl;  // Default thumbnail URL
+    private String videoId;
+    private String title;
+    private String artist;
+    private String duration;
+    private String thumbnailUrl;
 
 
 }
