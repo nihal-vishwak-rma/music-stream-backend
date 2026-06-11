@@ -397,6 +397,7 @@ public class MusicServiceImpl implements MusicService {
         }
 
         String fullUrl = "https://www.youtube.com/watch?v=" + videoId;
+        
 
         try {
 
@@ -488,6 +489,7 @@ public class MusicServiceImpl implements MusicService {
         try {
             ProcessBuilder pb = new ProcessBuilder(
                     "/home/nihal/.local/bin/yt-dlp",
+                    "--cookies-from-browser", "brave",
                     "-f", "bestaudio",
                     "--get-url",
                     url
@@ -499,7 +501,7 @@ public class MusicServiceImpl implements MusicService {
             String audioUrl = new String(process.getInputStream().readAllBytes()).trim();
             int exitCode = process.waitFor();
 
-            if (exitCode != 0 || audioUrl.isEmpty()) {
+            if (audioUrl.isBlank() || !audioUrl.startsWith("http")) {
                 log.error("yt-dlp failed: {}", audioUrl);
                 return null;
             }
@@ -508,6 +510,8 @@ public class MusicServiceImpl implements MusicService {
             return new StreamUrlDto(audioUrl);
 
         } catch (IOException | InterruptedException e) {
+
+
             log.error("yt-dlp extraction failed", e);
             return null;
         }
