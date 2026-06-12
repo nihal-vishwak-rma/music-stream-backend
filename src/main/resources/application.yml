@@ -15,3 +15,7 @@ spring:
     port: ${REDIS_PORT:6379}
   cache:
     type: redis
+
+yt:
+  dlp:
+    url: ${YT_DLP_URL}

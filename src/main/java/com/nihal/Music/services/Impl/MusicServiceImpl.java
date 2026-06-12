@@ -54,6 +54,9 @@ public class MusicServiceImpl implements MusicService {
     private String apikey;
     private YouTube youTube;
 
+    @Value("${yt.dlp.url}")
+    private String ytDlpUrl;
+
     private String MUSIC_URL_KEY = "music:streamUrl:";
     private Duration MUSIC_URL_DURATION = Duration.ofHours(3);
 
@@ -397,11 +400,11 @@ public class MusicServiceImpl implements MusicService {
         }
 
         String fullUrl = "https://www.youtube.com/watch?v=" + videoId;
-        
+
 
         try {
 
-            String json = (String) redisTemplate.opsForValue().get(MUSIC_URL_KEY + ":" + fullUrl);
+            String json = (String) redisTemplate.opsForValue().get(MUSIC_URL_KEY + fullUrl);
 
             if (json != null) {
                 log.info("StreamUrl found in redis cache");
@@ -426,7 +429,7 @@ public class MusicServiceImpl implements MusicService {
 
                     log.info("Caching stream url");
                     String saveJson = objectMapper.writeValueAsString(streamUrlDto);
-                    redisTemplate.opsForValue().set(MUSIC_URL_KEY + ":" + fullUrl, saveJson, MUSIC_URL_DURATION);
+                    redisTemplate.opsForValue().set(MUSIC_URL_KEY + fullUrl, saveJson, MUSIC_URL_DURATION);
 
                     return streamUrlDto;
                 }
@@ -446,7 +449,7 @@ public class MusicServiceImpl implements MusicService {
             log.info("Caching stream url");
 
             String saveJson = objectMapper.writeValueAsString(streamUrlDto);
-            redisTemplate.opsForValue().set(MUSIC_URL_KEY + ":" + fullUrl, saveJson, MUSIC_URL_DURATION);
+            redisTemplate.opsForValue().set(MUSIC_URL_KEY + fullUrl, saveJson, MUSIC_URL_DURATION);
 
             log.info("Extracted audio url");
             return streamUrlDto;
@@ -488,8 +491,7 @@ public class MusicServiceImpl implements MusicService {
 
         try {
             ProcessBuilder pb = new ProcessBuilder(
-                    "/home/nihal/.local/bin/yt-dlp",
-                    "--cookies-from-browser", "brave",
+                    ytDlpUrl,
                     "-f", "bestaudio",
                     "--get-url",
                     url
